@@ -1,0 +1,6 @@
+Flask
+Flask-SocketIO
+mediapipe
+opencv-python
+tensorflow
+numpy

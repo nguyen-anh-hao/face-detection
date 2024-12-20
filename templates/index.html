@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Face Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        #container {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            height: 80%;
+        }
+
+        #video-container, #canvas-container {
+            position: relative;
+            width: 48%; /* Adjusted width to fit two containers side by side */
+        }
+
+        video, canvas {
+            height: 480px;
+            border: 2px solid #ddd;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- Left side: Webcam Video -->
+        <div id="video-container">
+            <video id="video" autoplay playsinline></video>
+        </div>
+
+        <!-- Right side: Processed Video with Face Detection -->
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        const socket = io.connect("http://localhost:5000");  // Ensure the URL matches your Flask app
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+
+        // Set up the video stream from the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function (stream) {
+                video.srcObject = stream;
+                video.onloadedmetadata = function () {
+                    // Set canvas size to match video size
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+            })
+            .catch(function (error) {
+                console.error("Error accessing webcam: ", error);
+            });
+
+        // Function to send video frames to the server via SocketIO
+        function sendFrameToServer() {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL("image/jpeg");
+
+            // Emit the base64-encoded image data to the server
+            socket.emit('video_feed', imageData.split(',')[1]);
+        }
+
+        // Listen for the processed video from the server
+        socket.on('processed_video', function (data) {
+            const img = new Image();
+            img.src = "data:image/jpeg;base64," + data;
+            img.onload = function () {
+                context.clearRect(0, 0, canvas.width, canvas.height);  // Clear the canvas
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);  // Draw the processed image
+            };
+        });
+
+        // Send frames every 100ms (10 FPS)
+        setInterval(sendFrameToServer, 100);
+    </script>
+</body>
+</html>
